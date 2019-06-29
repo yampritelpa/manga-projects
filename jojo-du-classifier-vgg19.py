@@ -21,7 +21,7 @@ from tensorflow.keras.callbacks import EarlyStopping
 image_size = 100
 image_shape = (image_size, image_size, 3)
 
-#Define CNN model with transfer learning
+#Define CNN model with transfer learning, only training 2 fully-connected layers 
 base_model = VGG19(include_top=False,weights='imagenet',input_shape=image_shape,pooling=None)
 base_model.trainable=False 
 
@@ -30,15 +30,15 @@ model.add(base_model)
 model.add(layers.MaxPooling2D(2,padding='same'))
 model.add(layers.Flatten())
 model.add(layers.Dense(256,activation='relu'))
-model.add(layers.Dense(6,activation='softmax'))
-#print(model.summary())
+model.add(layers.Dense(6,activation='softmax')) #6 targets
+print(model.summary()) #Check the whole model
 
 model.compile(optimizer='adam',
               loss='sparse_categorical_crossentropy',
               metrics=['accuracy'])
 
 
-#CSV file contains labels and image numbers 
+#CSV file contains labels and image numbers in format XXXX,Y
 du = pd.read_csv("resized/info.csv",header=0)
 files = []
 for n in range(1,len(du)+1):
@@ -52,7 +52,7 @@ for n in range(1,len(du)+1):
     files.append(filename)
 du["filename"]=files
 
-
+#Define function to construct filename from image number and load image into array
 def loadImages(df):         
     df = df.reset_index()
     m = len(df)
@@ -102,12 +102,11 @@ test_labels = enc.transform(test['character'])
 test_vectors = to_categorical(test_labels) #To calculate error magnitude by L2
 testdata = loadImages(test)
 guesses = model.predict(testdata)
+score = model.evaluate(testdata,test_labels)
 
 #Convert predictions into a manner that's easier for error analysis
 guessed = pd.Series(np.argmax(guesses,axis=-1)).map(character_map)
-score = model.evaluate(testdata,test_labels)
-
-scores = np.sqrt(np.sum(np.square(np.subtract(guesses,test_vectors)),axis=1)) #L2 error
-results = pd.concat([test.reset_index(),pd.DataFrame({'guessed':guessed}),pd.DataFrame({'L2':scores})],1).drop('index',1)
-score_mask = results['character']==results['guessed']
-results = pd.concat([results,pd.DataFrame({'correct':score_mask})],axis=1)
+errors = np.sqrt(np.sum(np.square(np.subtract(guesses,test_vectors)),axis=1)) #L2 error
+results = pd.concat([test.reset_index(),pd.DataFrame({'guessed':guessed}),pd.DataFrame({'L2':errors})],1).drop('index',1)
+guess_mask = results['character']==results['guessed']
+results = pd.concat([results,pd.DataFrame({'correct':guess_mask})],axis=1)
