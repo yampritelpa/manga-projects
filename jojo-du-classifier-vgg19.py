@@ -9,7 +9,7 @@ import pandas as pd
 import tensorflow as tf
 import imageio
 import numpy as np
-from tensorflow.keras import layers, models, regularizers
+from tensorflow.keras import layers
 from tensorflow.keras.applications.vgg19 import VGG19
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder
@@ -95,16 +95,18 @@ es = EarlyStopping(monitor='loss',mode='min',patience=5)
 model.fit(datagen.flow(training_images,training_labels,batch_size=32),
           steps_per_epoch=len(training_images),epochs=10,callbacks=[es],
           )
-#model.fit(training_images,training_labels,epochs=100) #Without image augmentation
+#model.fit(training_images,training_labels,epochs=100) #More epochs without image generator
 
 #Prepare test data in the same manner as the training data
 test_labels = enc.transform(test['character'])
 test_vectors = to_categorical(test_labels) #To calculate error magnitude by L2
 testdata = loadImages(test)
+
+#Run model on test images to predict characters and calculate accuracy
 guesses = model.predict(testdata)
 score = model.evaluate(testdata,test_labels)
 
-#Convert predictions into a manner that's easier for error analysis
+#Convert predictions into a format that's easier for error analysis
 guessed = pd.Series(np.argmax(guesses,axis=-1)).map(character_map)
 errors = np.sqrt(np.sum(np.square(np.subtract(guesses,test_vectors)),axis=1)) #L2 error
 results = pd.concat([test.reset_index(),pd.DataFrame({'guessed':guessed}),pd.DataFrame({'L2':errors})],1).drop('index',1)
